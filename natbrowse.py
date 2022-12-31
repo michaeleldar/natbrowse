@@ -1,3 +1,8 @@
+import tkinter
+WIDTH, HEIGHT = 800, 600
+HSTEP, VSTEP = 13, 18
+SCROLL_STEP = 100
+
 def request(url):
     import ssl
     scheme, url = url.split("://", 1)
@@ -48,7 +53,8 @@ def request(url):
     return headers, body
 
 
-def show(body):
+def lex(body):
+    text = ""
     in_angle = False
     for c in body:
         if c == "<":
@@ -56,13 +62,64 @@ def show(body):
         elif c == ">":
             in_angle = False
         elif not in_angle:
-            print(c, end="")
+            text += c
+    return text
 
 
-def load(url):
-    headers, body = request(url)
-    show(body)
+def layout(text):
+    display_list = []
+    cursor_x, cursor_y = HSTEP, VSTEP
+    for c in text:
+        display_list.append((cursor_x, cursor_y, c))
+        cursor_x += HSTEP
+        if cursor_x >= WIDTH - HSTEP:
+            cursor_y += VSTEP
+            cursor_x = HSTEP
+    return display_list
+
+class Browser:
+    def __init__(self):
+        self.window = tkinter.Tk()
+        self.canvas = tkinter.Canvas(
+            self.window,
+            width=WIDTH,
+            height=HEIGHT
+        )
+        self.canvas.pack()
+        self.scroll = 0
+        self.window.bind("<Down>", self.scrolldown)
+        self.window.bind("<Up>", self.scrollup)
+
+    def load(self, url):
+        headers, body = request(url)
+        text = lex(body)
+        self.display_list = layout(text)
+        self.draw()
+
+    def draw(self):
+        self.canvas.delete("all")
+        for x, y, c in self.display_list:
+            if y > self.scroll + HEIGHT: continue
+            if y + VSTEP < self.scroll: continue
+            self.canvas.create_text(x, y - self.scroll, text=c)
+
+    def scrolldown(self, e):
+        self.scroll += SCROLL_STEP
+        self.draw()
+
+    def scrollup(self, e):
+        if self.scroll < 100 and self.scroll > 0:
+            self.scroll = 0
+        elif self.scroll == 0:
+            self.scroll = 0
+        else:
+            self.scroll -= SCROLL_STEP
+        self.draw()
+
+
+
 
 if __name__ == "__main__":
     import sys
-    load(sys.argv[1])
+    Browser().load(sys.argv[1])
+    tkinter.mainloop()
